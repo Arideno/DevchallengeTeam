@@ -16,7 +16,8 @@ func main() {
 	}
 
 	go func() {
-		if err := bot.Start(); err != nil {
+		botService := &bot.Service{}
+		if err := botService.Start(); err != nil {
 			log.Fatal(err)
 		}
 	}()
