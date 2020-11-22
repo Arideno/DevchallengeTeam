@@ -60,9 +60,19 @@ func (s *Service) Start() error {
 }
 
 func (s *Service) handleAsk(chatId int64) {
-	msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
-	msg.ReplyMarkup = createLocationInlineKeyboard()
-	_, _ = s.bot.Send(msg)
+	id := s.checkIfUserHasCountry(chatId)
+	if  id == 0 {
+		msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
+		msg.ReplyMarkup = createLocationInlineKeyboard()
+		_, _ = s.bot.Send(msg)
+	} else {
+		country, _ := s.getCountryById(id)
+		msgText := fmt.Sprintf("Вибрана країна - %s.", country.Name)
+		msg := tgbotapi.NewMessage(chatId, msgText)
+		msg.ReplyMarkup = createAskInlineKeyboard()
+		_, _ = s.bot.Send(msg)
+	}
+
 }
 
 func (s *Service) handleUndefinedCommand(chatId int64) {

@@ -15,3 +15,21 @@ func (s *Service) getCountryByCode(code string) (*country, error) {
 	}
 	return &country, nil
 }
+
+func (s *Service) checkIfUserHasCountry(chatId int64) int {
+	var countryId int
+	err := s.db.Get(&countryId, "SELECT countryId FROM user_countries WHERE chatId=$1", chatId)
+	if err != nil {
+		return 0
+	}
+	return countryId
+}
+
+func (s *Service) getCountryById(countryId int) (*country, error){
+	country := country{}
+	err := s.db.Get(&country, "SELECT * FROM countries WHERE id=$1", countryId)
+	if err != nil {
+		return nil, err
+	}
+	return &country, nil
+}
