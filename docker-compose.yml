@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  server:
+    build: server
+    restart: always
+    ports:
+    - 8080:8080
+    volumes:
+    - ./server:/go/src/app
+    command: sh -c "go build . && ./app"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@pgbouncer:6432/postgres?sslmode=disable
+    env_file:
+      - server/config.env
+    depends_on:
+      - pgbouncer
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+    restart: always
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+  pgbouncer:
+    image: pgbouncer/pgbouncer
+    restart: always
+    ports:
+    - 6432:6432
+    environment:
+      - DATABASES_HOST=db
+      - DATABASES_PORT=5432
+      - DATABASES_USER=postgres
+      - DATABASES_PASSWORD=postgres
+      - DATABASES_DBNAME=postgres
+      - PGBOUNCER_LISTEN_PORT=6432
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
