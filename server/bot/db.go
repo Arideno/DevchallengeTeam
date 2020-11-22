@@ -1,5 +1,7 @@
 package bot
 
+import "log"
+
 func (s *Service) changeCountry(chatId int64, countryId int) {
 	_, err := s.db.Exec("INSERT INTO user_countries(chatId, countryId) VALUES ($1, $2)", chatId, countryId)
 	if err != nil {
@@ -32,4 +34,18 @@ func (s *Service) getCountryById(countryId int) (*country, error){
 		return nil, err
 	}
 	return &country, nil
+}
+
+func (s *Service) getCountries(offset int) ([]country, int) {
+	var countries []country
+	var count int
+	err := s.db.Select(&countries, "SELECT * FROM countries ORDER BY id LIMIT 10 OFFSET $1", offset)
+	if err != nil {
+		log.Println(err)
+	}
+	err = s.db.Get(&count, "SELECT COUNT(*) FROM countries")
+	if err != nil {
+		log.Println(err)
+	}
+	return countries, count
 }

@@ -1,12 +1,14 @@
 package bot
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/codingsince1985/geo-golang/openstreetmap"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"log"
+	"math"
 	"os"
 	"strings"
 )
@@ -14,6 +16,11 @@ import (
 type Service struct {
 	bot *tgbotapi.BotAPI
 	db *sqlx.DB
+}
+
+type CallbackData struct {
+	Type string `json:"type"`
+	Data interface{} `json:"data"`
 }
 
 func (s *Service) Start() error {
@@ -38,24 +45,34 @@ func (s *Service) Start() error {
 	updates := s.bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		if update.Message == nil {
-			continue
-		}
-		if update.Message.Location != nil {
-			s.handleLocation(update.Message.Chat.ID, update.Message.Location)
-		}
+		if update.Message != nil {
+			if update.Message.Location != nil {
+				s.handleLocation(update.Message.Chat.ID, update.Message.Location)
+			}
 
-		if update.Message.IsCommand() {
-			switch update.Message.Command() {
-			case "ask":
-				s.handleAsk(update.Message.Chat.ID)
-			default:
-				s.handleUndefinedCommand(update.Message.Chat.ID)
+			if update.Message.IsCommand() {
+				switch update.Message.Command() {
+				case "ask":
+					s.handleAsk(update.Message.Chat.ID)
+				default:
+					s.handleUndefinedCommand(update.Message.Chat.ID)
+				}
 			}
 		}
 
-
+		if update.CallbackQuery != nil {
+			callbackData := CallbackData{}
+			_ = json.Unmarshal([]byte(update.CallbackQuery.Data), &callbackData)
+			if callbackData.Type == "country" {
+				s.handleCountryCallback(update.CallbackQuery.Message.Chat.ID, 1)
+			} else if callbackData.Type == "page" {
+				page := int(callbackData.Data.(float64))
+				_, _ = s.bot.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
+				s.handleCountryCallback(update.CallbackQuery.Message.Chat.ID, page)
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -104,10 +121,32 @@ func (s *Service) handleLocation(chatId int64, location *tgbotapi.Location) {
 	_, _ = s.bot.Send(msg)
 }
 
+func (s *Service) handleCountryCallback(chatId int64, page int) {
+	countries, count := s.getCountries((page - 1) * 10)
+	var row []tgbotapi.InlineKeyboardButton
+	if page > 1 {
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData("<", fmt.Sprintf(`{"type": "page", "data": %d}`, page-1)))
+	}
+	if page+1 <= int(math.Ceil(float64(count) / 10)) {
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData(">", fmt.Sprintf(`{"type": "page", "data": %d}`, page+1)))
+	}
+	markup := tgbotapi.NewInlineKeyboardMarkup(row)
+	msgText := "Виберіть країну зі списку:\n"
+	for i, country := range countries {
+		msgText += fmt.Sprintf("%s - %s", country.Name, "/country_" + country.Code)
+		if i != len(countries) - 1 {
+			msgText += "\n"
+		}
+	}
+	msg := tgbotapi.NewMessage(chatId, msgText)
+	msg.ReplyMarkup = markup
+	_, _ = s.bot.Send(msg)
+}
+
 func createLocationInlineKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Оберіть країну вручну", "Оберіть країну вручну"),
+			tgbotapi.NewInlineKeyboardButtonData("Оберіть країну вручну", `{"type": "country"}`),
 		),
 	)
 }
@@ -118,7 +157,7 @@ func createAskInlineKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("Задати питання", "Задати питання"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Обрати іншу країну", "Обрати іншу країну"),
+			tgbotapi.NewInlineKeyboardButtonData("Обрати іншу країну", `{"type": "country"}`),
 		),
 	)
 }
