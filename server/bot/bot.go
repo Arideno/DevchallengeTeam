@@ -15,11 +15,11 @@ import (
 
 type Service struct {
 	bot *tgbotapi.BotAPI
-	db *sqlx.DB
+	db  *sqlx.DB
 }
 
 type CallbackData struct {
-	Type string `json:"type"`
+	Type string      `json:"type"`
 	Data interface{} `json:"data"`
 }
 
@@ -55,11 +55,18 @@ func (s *Service) Start() error {
 				case "ask":
 					s.handleAsk(update.Message.Chat.ID)
 				default:
-					s.handleUndefinedCommand(update.Message.Chat.ID)
-				}
-			}
-		}
+					isCountryListCommand, code := checkIfCountryByListCommand(update.Message.Command())
+					if isCountryListCommand {
+						s.handleCountryFromList(update.Message.Chat.ID, code)
+					} else {
+						s.handleUndefinedCommand(update.Message.Chat.ID)
+					}
 
+				}
+
+			}
+
+		}
 		if update.CallbackQuery != nil {
 			callbackData := CallbackData{}
 			_ = json.Unmarshal([]byte(update.CallbackQuery.Data), &callbackData)
@@ -71,14 +78,14 @@ func (s *Service) Start() error {
 				s.handleCountryCallback(update.CallbackQuery.Message.Chat.ID, page)
 			}
 		}
-	}
 
+	}
 	return nil
 }
 
 func (s *Service) handleAsk(chatId int64) {
 	id := s.checkIfUserHasCountry(chatId)
-	if  id == 0 {
+	if id == 0 {
 		msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
 		msg.ReplyMarkup = createLocationInlineKeyboard()
 		_, _ = s.bot.Send(msg)
@@ -127,14 +134,14 @@ func (s *Service) handleCountryCallback(chatId int64, page int) {
 	if page > 1 {
 		row = append(row, tgbotapi.NewInlineKeyboardButtonData("<", fmt.Sprintf(`{"type": "page", "data": %d}`, page-1)))
 	}
-	if page+1 <= int(math.Ceil(float64(count) / 10)) {
+	if page+1 <= int(math.Ceil(float64(count)/10)) {
 		row = append(row, tgbotapi.NewInlineKeyboardButtonData(">", fmt.Sprintf(`{"type": "page", "data": %d}`, page+1)))
 	}
 	markup := tgbotapi.NewInlineKeyboardMarkup(row)
 	msgText := "Виберіть країну зі списку:\n"
 	for i, country := range countries {
-		msgText += fmt.Sprintf("%s - %s", country.Name, "/country_" + country.Code)
-		if i != len(countries) - 1 {
+		msgText += fmt.Sprintf("%s - %s", country.Name, "/country_"+country.Code)
+		if i != len(countries)-1 {
 			msgText += "\n"
 		}
 	}
@@ -160,4 +167,26 @@ func createAskInlineKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("Обрати іншу країну", `{"type": "country"}`),
 		),
 	)
+}
+
+func checkIfCountryByListCommand(command string) (bool, string) {
+	splitCommand := strings.Split(command, "_")
+	if len(splitCommand) == 2 && splitCommand[0] == "country" {
+		return true, splitCommand[1]
+	}
+	return false, ""
+}
+
+func (s *Service) handleCountryFromList(chatId int64, code string) {
+	country, err := s.getCountryByCode(code)
+	if err != nil {
+		s.handleUndefinedCommand(chatId)
+		return
+	}
+	s.changeCountry(chatId, country.Id)
+	msgText := fmt.Sprintf("Вибрана країна - %s.", country.Name)
+	msg := tgbotapi.NewMessage(chatId, msgText)
+	msg.ReplyMarkup = createAskInlineKeyboard()
+	_, _ = s.bot.Send(msg)
+
 }
