@@ -9,7 +9,8 @@ import (
 var bot *tgbotapi.BotAPI
 
 func Start() error {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
+	var err error
+	bot, err = tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
 	if err != nil {
 		return err
 	}
@@ -24,8 +25,34 @@ func Start() error {
 	updates := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		log.Println(update)
+		if update.Message == nil {
+			continue
+		}
+		if update.Message.IsCommand() {
+			switch update.Message.Command() {
+			case "ask":
+				handleAsk(update.Message.Chat.ID)
+			default:
+				handleUndefinedCommand(update.Message.Chat.ID)
+			}
+		}
 	}
-
 	return nil
+}
+
+func handleAsk(chatId int64) {
+	numericKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Оберіть країну вручну", "Оберіть країну вручну"),
+
+		),
+	)
+	msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
+	msg.ReplyMarkup = numericKeyboard
+	_, _ = bot.Send(msg)
+}
+
+func handleUndefinedCommand(chatId int64) {
+	msg := tgbotapi.NewMessage(chatId, "На жаль, не можу впізнати команду")
+	_, _ = bot.Send(msg)
 }
