@@ -28,6 +28,10 @@ func Start() error {
 		if update.Message == nil {
 			continue
 		}
+		if update.Message.Location != nil {
+			handleLocation(update.Message.Chat.ID, update.Message.Location)
+		}
+
 		if update.Message.IsCommand() {
 			switch update.Message.Command() {
 			case "ask":
@@ -36,6 +40,8 @@ func Start() error {
 				handleUndefinedCommand(update.Message.Chat.ID)
 			}
 		}
+
+
 	}
 	return nil
 }
@@ -55,4 +61,8 @@ func handleAsk(chatId int64) {
 func handleUndefinedCommand(chatId int64) {
 	msg := tgbotapi.NewMessage(chatId, "На жаль, не можу впізнати команду")
 	_, _ = bot.Send(msg)
+}
+
+func handleLocation(chatId int64, location *tgbotapi.Location) {
+
 }
