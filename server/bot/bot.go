@@ -46,10 +46,6 @@ func (s *Service) Start() error {
 
 	for update := range updates {
 		if update.Message != nil {
-			if update.Message.Location != nil {
-				s.handleLocation(update.Message.Chat.ID, update.Message.Location)
-			}
-
 			if update.Message.IsCommand() {
 				switch update.Message.Command() {
 				case "ask":
@@ -61,15 +57,15 @@ func (s *Service) Start() error {
 					} else {
 						s.handleUndefinedCommand(update.Message.Chat.ID)
 					}
-
 				}
-
-			} else {
+			} else if update.Message.Location != nil {
+				s.handleLocation(update.Message.Chat.ID, update.Message.Location)
+			} else if update.Message.Text != "" {
 				s.getAnswerOnQuestion(update.Message.Chat.ID, update.Message.Text)
 			}
 
-
 		}
+
 		if update.CallbackQuery != nil {
 			callbackData := CallbackData{}
 			_ = json.Unmarshal([]byte(update.CallbackQuery.Data), &callbackData)
@@ -90,8 +86,8 @@ func (s *Service) Start() error {
 }
 
 func (s *Service) handleAsk(chatId int64) {
-	id := s.checkIfUserHasCountry(chatId)
-	if id == 0 {
+	id, err := s.getCountryIdByChatId(chatId)
+	if err != nil {
 		msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
 		msg.ReplyMarkup = createLocationInlineKeyboard()
 		_, _ = s.bot.Send(msg)
@@ -203,15 +199,19 @@ func (s Service) handleQuestion(chatId int64)  {
 }
 
 func (s Service) getAnswerOnQuestion(chatId int64, question string)  {
-	countryId := s.checkIfUserHasCountry(chatId)
-	if countryId == 0 {
-		msg := tgbotapi.NewMessage(chatId, "Оберіть будь-ласка країну")
+	countryId, err := s.getCountryIdByChatId(chatId)
+	if err != nil {
+		msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
+		msg.ReplyMarkup = createLocationInlineKeyboard()
 		_, _ = s.bot.Send(msg)
 		return
 	}
 	answer, err := s.getAnswer(question, countryId)
 	if err != nil {
-
+		s.askQuestion(chatId, countryId, question)
+		msg := tgbotapi.NewMessage(chatId, "Ваше питання було передано консулу. Будь ласка очікуйте на відповідь.")
+		_, _ = s.bot.Send(msg)
+		return
 	}
 	msg := tgbotapi.NewMessage(chatId, answer)
 	_, _ = s.bot.Send(msg)

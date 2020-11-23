@@ -20,16 +20,16 @@ func (s *Service) getCountryByCode(code string) (*country, error) {
 	return &country, nil
 }
 
-func (s *Service) checkIfUserHasCountry(chatId int64) int {
+func (s *Service) getCountryIdByChatId(chatId int64) (int, error) {
 	var countryId int
 	err := s.db.Get(&countryId, "SELECT countryId FROM user_countries WHERE chatId=$1", chatId)
 	if err != nil {
-		return 0
+		return 0, err
 	}
-	return countryId
+	return countryId, nil
 }
 
-func (s *Service) getCountryById(countryId int) (*country, error){
+func (s *Service) getCountryById(countryId int) (*country, error) {
 	country := country{}
 	err := s.db.Get(&country, "SELECT * FROM countries WHERE id=$1", countryId)
 	if err != nil {
@@ -59,4 +59,10 @@ func (s *Service) getAnswer(question string, countryId int) (string, error) {
 		return "", err
 	}
 	return answer, nil
+}
+
+func (s *Service) askQuestion(chatId int64, countryId int, question string) {
+	if question != "" {
+		_, _ = s.db.Exec("INSERT INTO user_questions(chat_id, country_id, question, status) VALUES ($1, $2, $3, $4)", chatId, countryId, question, 0)
+	}
 }
