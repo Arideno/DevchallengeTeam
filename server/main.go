@@ -1,8 +1,8 @@
 package main
 
 import (
+	"app/api"
 	"app/bot"
-	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -15,20 +15,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	botService := &bot.Service{}
 	go func() {
-		botService := &bot.Service{}
 		if err := botService.Start(); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	r := gin.Default()
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "test",
-		})
-	})
-	log.Fatal(r.Run())
+	apiServer := &api.APIServer{}
+	if err := apiServer.Start(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func migration() error {

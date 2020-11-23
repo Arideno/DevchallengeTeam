@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"app/models"
 	"log"
 )
 
@@ -11,8 +12,8 @@ func (s *Service) changeCountry(chatId int64, countryId int) {
 	}
 }
 
-func (s *Service) getCountryByCode(code string) (*country, error) {
-	country := country{}
+func (s *Service) getCountryByCode(code string) (*models.Country, error) {
+	country := models.Country{}
 	err := s.db.Get(&country, "SELECT * FROM countries WHERE code=$1", code)
 	if err != nil {
 		return nil, err
@@ -29,8 +30,8 @@ func (s *Service) getCountryIdByChatId(chatId int64) (int, error) {
 	return countryId, nil
 }
 
-func (s *Service) getCountryById(countryId int) (*country, error) {
-	country := country{}
+func (s *Service) getCountryById(countryId int) (*models.Country, error) {
+	country := models.Country{}
 	err := s.db.Get(&country, "SELECT * FROM countries WHERE id=$1", countryId)
 	if err != nil {
 		return nil, err
@@ -38,8 +39,8 @@ func (s *Service) getCountryById(countryId int) (*country, error) {
 	return &country, nil
 }
 
-func (s *Service) getCountries(offset int) ([]country, int) {
-	var countries []country
+func (s *Service) getCountries(offset int) ([]models.Country, int) {
+	var countries []models.Country
 	var count int
 	err := s.db.Select(&countries, "SELECT * FROM countries ORDER BY id LIMIT 10 OFFSET $1", offset)
 	if err != nil {
