@@ -64,7 +64,10 @@ func (s *Service) Start() error {
 
 				}
 
+			} else {
+				s.getAnswerOnQuestion(update.Message.Chat.ID, update.Message.Text)
 			}
+
 
 		}
 		if update.CallbackQuery != nil {
@@ -76,8 +79,11 @@ func (s *Service) Start() error {
 				page := int(callbackData.Data.(float64))
 				_, _ = s.bot.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
 				s.handleCountryCallback(update.CallbackQuery.Message.Chat.ID, page)
+			} else if callbackData.Type == "question" {
+				s.handleQuestion(update.CallbackQuery.Message.Chat.ID)
 			}
 		}
+
 
 	}
 	return nil
@@ -161,7 +167,7 @@ func createLocationInlineKeyboard() tgbotapi.InlineKeyboardMarkup {
 func createAskInlineKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Задати питання", "Задати питання"),
+			tgbotapi.NewInlineKeyboardButtonData("Задати питання", `{"type": "question"}`),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("Обрати іншу країну", `{"type": "country"}`),
@@ -189,4 +195,24 @@ func (s *Service) handleCountryFromList(chatId int64, code string) {
 	msg.ReplyMarkup = createAskInlineKeyboard()
 	_, _ = s.bot.Send(msg)
 
+}
+
+func (s Service) handleQuestion(chatId int64)  {
+	msg := tgbotapi.NewMessage(chatId, "Ми чекаємо на Ваше запитання.")
+	_, _ = s.bot.Send(msg)
+}
+
+func (s Service) getAnswerOnQuestion(chatId int64, question string)  {
+	countryId := s.checkIfUserHasCountry(chatId)
+	if countryId == 0 {
+		msg := tgbotapi.NewMessage(chatId, "Оберіть будь-ласка країну")
+		_, _ = s.bot.Send(msg)
+		return
+	}
+	answer, err := s.getAnswer(question, countryId)
+	if err != nil {
+
+	}
+	msg := tgbotapi.NewMessage(chatId, answer)
+	_, _ = s.bot.Send(msg)
 }

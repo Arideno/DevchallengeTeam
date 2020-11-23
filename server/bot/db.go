@@ -1,6 +1,8 @@
 package bot
 
-import "log"
+import (
+	"log"
+)
 
 func (s *Service) changeCountry(chatId int64, countryId int) {
 	_, err := s.db.Exec("INSERT INTO user_countries(chatId, countryId) VALUES ($1, $2)", chatId, countryId)
@@ -48,4 +50,13 @@ func (s *Service) getCountries(offset int) ([]country, int) {
 		log.Println(err)
 	}
 	return countries, count
+}
+
+func (s *Service) getAnswer(question string, countryId int) (string, error) {
+	var answer string
+	err := s.db.Get(&answer, "SELECT answer FROM qa WHERE country_id=$1 AND question=$2", countryId, question)
+	if err != nil {
+		return "", err
+	}
+	return answer, nil
 }
