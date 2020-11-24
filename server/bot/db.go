@@ -67,3 +67,19 @@ func (s *Service) askQuestion(chatId int64, countryId int, question string) {
 		_, _ = s.db.Exec("INSERT INTO user_questions(chat_id, country_id, question, status) VALUES ($1, $2, $3, $4)", chatId, countryId, question, 0)
 	}
 }
+
+func (s *Service) setUserStatus(chatId int64, status string) {
+	_, err := s.db.Exec("INSERT INTO users_bot_status(chat_id, status) VALUES ($1, $2)", chatId, status)
+	if err != nil {
+		_, _ = s.db.Exec("UPDATE users_bot_status SET status = $1 WHERE chat_id = $2", status, chatId)
+	}
+}
+
+func (s *Service) getUserStatus(chatId int64) string {
+	var status string
+	err := s.db.Get(&status, "SELECT status FROM users_bot_status WHERE chat_id = $1", chatId)
+	if err != nil {
+		return "UNKNOWN"
+	}
+	return status
+}

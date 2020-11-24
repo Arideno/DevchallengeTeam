@@ -61,7 +61,12 @@ func (s *Service) Start() error {
 			} else if update.Message.Location != nil {
 				s.handleLocation(update.Message.Chat.ID, update.Message.Location)
 			} else if update.Message.Text != "" {
-				s.getAnswerOnQuestion(update.Message.Chat.ID, update.Message.Text)
+				switch s.getUserStatus(update.Message.Chat.ID) {
+				case "QUESTION":
+					s.getAnswerOnQuestion(update.Message.Chat.ID, update.Message.Text)
+				default:
+					log.Println("Unknown text")
+				}
 			}
 
 		}
@@ -193,7 +198,8 @@ func (s *Service) handleCountryFromList(chatId int64, code string) {
 
 }
 
-func (s Service) handleQuestion(chatId int64)  {
+func (s Service) handleQuestion(chatId int64) {
+	s.setUserStatus(chatId, "QUESTION")
 	msg := tgbotapi.NewMessage(chatId, "Ми чекаємо на Ваше запитання.")
 	_, _ = s.bot.Send(msg)
 }
@@ -209,10 +215,12 @@ func (s Service) getAnswerOnQuestion(chatId int64, question string)  {
 	answer, err := s.getAnswer(question, countryId)
 	if err != nil {
 		s.askQuestion(chatId, countryId, question)
+		s.setUserStatus(chatId, "DISCUSS")
 		msg := tgbotapi.NewMessage(chatId, "Ваше питання було передано консулу. Будь ласка очікуйте на відповідь.")
 		_, _ = s.bot.Send(msg)
 		return
 	}
+	s.setUserStatus(chatId, "UNKNOWN")
 	msg := tgbotapi.NewMessage(chatId, answer)
 	_, _ = s.bot.Send(msg)
 }

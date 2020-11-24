@@ -14,9 +14,15 @@ type Question struct {
 	Status int `json:"status"`
 }
 
+type Topic struct {
+	Id int `json:"id"`
+	Name string `json:"name"`
+}
+
 type QA struct {
 	Id int `json:"id"`
 	CountryId int `json:"country_id" db:"country_id"`
+	TopicId int `json:"topic_id" db:"topic_id"`
 	Question string `json:"question"`
 	Answer string `json:"answer"`
 }
