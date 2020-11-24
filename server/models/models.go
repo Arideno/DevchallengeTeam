@@ -33,3 +33,11 @@ type User struct {
 	Password string `json:"password"`
 	CountryId int `json:"country_id" db:"country_id"`
 }
+
+type Message struct {
+	Id int `json:"id"`
+	ChatId int64 `json:"chat_id" db:"chat_id"`
+	QuestionId int `json:"question_id" db:"question_id"`
+	Message string `json:"message"`
+	FromOperator bool `json:"from_operator" db:"from_operator"`
+}

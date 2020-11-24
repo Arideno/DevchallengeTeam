@@ -1,6 +1,9 @@
 package api
 
-import "app/models"
+import (
+	"app/models"
+	"log"
+)
 
 func (a *APIServer) getQuestionsByCountryId(countryId int) ([]models.Question, error) {
 	questions := make([]models.Question, 0)
@@ -70,4 +73,25 @@ func (a *APIServer) createUser(user *models.User) (int, error) {
 		return 0, err
 	}
 	return id, nil
+}
+
+func (a *APIServer) sendMessage(chatId int64, questionId int, message string) models.Message {
+	var id int
+	err := a.db.Get(&id, "INSERT INTO user_messages(chat_id, message, question_id, from_operator) VALUES ($1, $2, $3, $4) RETURNING id", chatId, message, questionId, true)
+	if err != nil {
+		log.Println(err)
+	}
+	return models.Message{
+		Id:           id,
+		ChatId:       chatId,
+		QuestionId:   questionId,
+		Message:      message,
+		FromOperator: true,
+	}
+}
+
+func (a *APIServer) getMessages(questionId int) []models.Message {
+	messages := make([]models.Message, 0)
+	_ = a.db.Select(&messages, "SELECT * FROM user_messages WHERE question_id = $1", questionId)
+	return messages
 }

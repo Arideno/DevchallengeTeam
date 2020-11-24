@@ -22,3 +22,16 @@
     float: right;
     margin-right: 20px;
 }
+
+.input {
+    display: inline-block;
+    flex-grow: 0.95;
+    min-height: 100px;
+    resize: none;
+}
+
+.send {
+    margin-left: 20px;
+    background: none;
+    border: none;
+}

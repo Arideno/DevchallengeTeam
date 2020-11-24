@@ -3,9 +3,12 @@ package api
 import (
 	"app/models"
 	"app/utils"
+	"fmt"
 	jwt "github.com/appleboy/gin-jwt/v2"
+	jwtVerify "github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -16,7 +19,7 @@ import (
 )
 
 type APIServer struct {
-	r *gin.Engine
+	r  *gin.Engine
 	db *sqlx.DB
 }
 
@@ -35,20 +38,20 @@ func (a *APIServer) Start() error {
 	a.r = gin.Default()
 	a.r.Use(cors.New(cors.Config{
 		AllowAllOrigins: true,
-		AllowHeaders: []string{"Content-Type", "Authorization"},
-		AllowMethods: []string{"GET", "POST", "PATCH", "PUT", "DELETE"},
+		AllowHeaders:    []string{"Content-Type", "Authorization"},
+		AllowMethods:    []string{"GET", "POST", "PATCH", "PUT", "DELETE"},
 	}))
 
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
-		Key: []byte(os.Getenv("SECRET_KEY")),
-		Timeout: time.Hour,
+		Key:         []byte(os.Getenv("SECRET_KEY")),
+		Timeout:     time.Hour,
 		IdentityKey: "id",
 		PayloadFunc: func(data interface{}) jwt.MapClaims {
 			if v, ok := data.(*models.User); ok {
 				return jwt.MapClaims{
-					"id": v.Id,
+					"id":         v.Id,
 					"country_id": v.CountryId,
-					"username": v.Username,
+					"username":   v.Username,
 				}
 			}
 			return jwt.MapClaims{}
@@ -56,9 +59,9 @@ func (a *APIServer) Start() error {
 		IdentityHandler: func(c *gin.Context) interface{} {
 			claims := jwt.ExtractClaims(c)
 			return &models.User{
-				Id: int(claims["id"].(float64)),
+				Id:        int(claims["id"].(float64)),
 				CountryId: int(claims["country_id"].(float64)),
-				Username: claims["username"].(string),
+				Username:  claims["username"].(string),
 			}
 		},
 		Authenticator: func(c *gin.Context) (interface{}, error) {
@@ -76,8 +79,8 @@ func (a *APIServer) Start() error {
 
 			if utils.VerifyPassword(user.Password, password) {
 				return &models.User{
-					Id: user.Id,
-					Username: user.Username,
+					Id:        user.Id,
+					Username:  user.Username,
 					CountryId: user.CountryId,
 				}, nil
 			}
@@ -86,13 +89,13 @@ func (a *APIServer) Start() error {
 		},
 		Unauthorized: func(c *gin.Context, code int, message string) {
 			c.JSON(code, gin.H{
-				"code": code,
+				"code":  code,
 				"error": message,
 			})
 		},
-		TokenLookup: "header: Authorization, query: token, cookie: jwt",
+		TokenLookup:   "header: Authorization, query: token, cookie: jwt",
 		TokenHeadName: "Bearer",
-		TimeFunc: time.Now,
+		TimeFunc:      time.Now,
 	})
 
 	if err != nil {
@@ -107,6 +110,9 @@ func (a *APIServer) Start() error {
 
 	a.r.POST("/api/user/create", a.handleCreateUser())
 	a.r.POST("/api/login", authMiddleware.LoginHandler)
+	a.r.GET("/ws", func(c *gin.Context) {
+		a.wsHandler(c.Writer, c.Request)
+	})
 
 	auth := a.r.Group("/api/auth")
 	auth.Use(authMiddleware.MiddlewareFunc())
@@ -123,11 +129,78 @@ func (a *APIServer) Start() error {
 	return a.r.Run(":8080")
 }
 
+func (a *APIServer) wsHandler(w http.ResponseWriter, r *http.Request) {
+	wsUpgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+
+	conn, err := wsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Failed to set websocket upgrade: %+v\n", err)
+		return
+	}
+
+	type request struct {
+		Type  string      `json:"type" binding:"required"`
+		Data  interface{} `json:"data" binding:"required"`
+		Token string      `json:"token" binding:"required"`
+	}
+
+	var req request
+
+	for {
+		err := conn.ReadJSON(&req)
+		if err != nil {
+			break
+		}
+		token, err := jwtVerify.Parse(req.Token, func(token *jwtVerify.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwtVerify.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+
+			return []byte(os.Getenv("SECRET_KEY")), nil
+		})
+		if err != nil {
+			_ = conn.WriteMessage(1, []byte("0"))
+			continue
+		}
+		if token.Valid {
+			if req.Type == "SEND_MESSAGE" {
+				mp := req.Data.(map[string]interface{})
+				chatId := int64(mp["chatId"].(float64))
+				message := mp["message"].(string)
+				questionId := int(mp["questionId"].(float64))
+
+				msg := a.sendMessage(chatId, questionId, message)
+
+				_ = conn.WriteJSON(map[string]interface{}{
+					"type": "message",
+					"data": msg,
+				})
+			} else if req.Type == "GET_MESSAGES" {
+				mp := req.Data.(map[string]interface{})
+				questionId := int(mp["questionId"].(float64))
+				messages := a.getMessages(questionId)
+				_ = conn.WriteJSON(map[string]interface{}{
+					"type": "messages",
+					"data": messages,
+				})
+			}
+		} else {
+			_ = conn.WriteMessage(1, []byte("0"))
+		}
+	}
+}
+
 func (a *APIServer) handleCreateUser() gin.HandlerFunc {
 	type request struct {
-		Username string `json:"username" binding:"required"`
-		Password string `json:"password" binding:"required"`
-		CountryId int `json:"country_id" binding:"required"`
+		Username  string `json:"username" binding:"required"`
+		Password  string `json:"password" binding:"required"`
+		CountryId int    `json:"country_id" binding:"required"`
 	}
 	return func(c *gin.Context) {
 		var r request
@@ -187,7 +260,7 @@ func (a *APIServer) handleGetQuestionById() gin.HandlerFunc {
 
 func (a *APIServer) handleChangeStatus() gin.HandlerFunc {
 	type request struct {
-		Status int `json:"status"`
+		Status     int `json:"status"`
 		QuestionId int `json:"question_id"`
 	}
 	return func(c *gin.Context) {
@@ -214,9 +287,9 @@ func (a *APIServer) handleChangeStatus() gin.HandlerFunc {
 
 func (a *APIServer) handleAddQA() gin.HandlerFunc {
 	type request struct {
-		CountryId int `json:"country_id"`
-		Question string `json:"question"`
-		Answer string `json:"answer"`
+		CountryId int    `json:"country_id"`
+		Question  string `json:"question"`
+		Answer    string `json:"answer"`
 	}
 	return func(c *gin.Context) {
 		var r request
@@ -282,7 +355,7 @@ func (a *APIServer) handleGetQAById() gin.HandlerFunc {
 func (a *APIServer) handleUpdateQAById() gin.HandlerFunc {
 	type request struct {
 		Question string `json:"question"`
-		Answer string `json:"answer"`
+		Answer   string `json:"answer"`
 	}
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
