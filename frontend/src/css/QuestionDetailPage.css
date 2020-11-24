@@ -1,0 +1,24 @@
+.chat {
+    list-style: none;
+    max-width: 100%;
+    height: 200px;
+    overflow: auto;
+}
+
+.message {
+    box-sizing: border-box;
+    clear: both;
+    max-width: 500px;
+    background: deepskyblue;
+    float: left;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px 0;
+    display: inline-block;
+    overflow-wrap: break-word;
+}
+
+.message.mine {
+    float: right;
+    margin-right: 20px;
+}
