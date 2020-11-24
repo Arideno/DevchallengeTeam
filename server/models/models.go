@@ -20,3 +20,10 @@ type QA struct {
 	Question string `json:"question"`
 	Answer string `json:"answer"`
 }
+
+type User struct {
+	Id int `json:"id"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	CountryId int `json:"country_id" db:"country_id"`
+}

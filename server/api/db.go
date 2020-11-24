@@ -4,24 +4,24 @@ import "app/models"
 
 func (a *APIServer) getQuestionsByCountryId(countryId int) ([]models.Question, error) {
 	questions := make([]models.Question, 0)
-	err := a.db.Select(&questions, "SELECT * FROM user_questions WHERE country_id = $1", countryId)
+	err := a.db.Select(&questions, "SELECT * FROM user_questions WHERE country_id = $1 ORDER BY id DESC", countryId)
 	if err != nil {
 		return nil, err
 	}
 	return questions, nil
 }
 
-func (a *APIServer) getQuestionById(id int) (*models.Question, error) {
+func (a *APIServer) getQuestionById(id int, countryId int) (*models.Question, error) {
 	question := &models.Question{}
-	err := a.db.Get(question, "SELECT * FROM user_questions WHERE id = $1", id)
+	err := a.db.Get(question, "SELECT * FROM user_questions WHERE id = $1 AND country_id = $2", id, countryId)
 	if err != nil {
 		return nil, err
 	}
 	return question, nil
 }
 
-func (a *APIServer) setStatus(status int, questionId int) error {
-	_, err := a.db.Exec("UPDATE user_questions SET status = $1 WHERE id = $2", status, questionId)
+func (a *APIServer) setStatus(status int, questionId int, countryId int) error {
+	_, err := a.db.Exec("UPDATE user_questions SET status = $1 WHERE id = $2 AND country_id = $3", status, questionId, countryId)
 	return err
 }
 
@@ -51,4 +51,23 @@ func (a *APIServer) getQAById(id int) (*models.QA, error) {
 func (a *APIServer) updateQA(qa models.QA) error {
 	_, err := a.db.Exec("UPDATE qa SET question=$1, answer=$2 WHERE id = $3", qa.Question, qa.Answer, qa.Id)
 	return err
+}
+
+func (a *APIServer) getUser(username string) (*models.User, error) {
+	user := &models.User{}
+	err := a.db.Get(user, "SELECT * FROM users WHERE username=$1", username)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (a *APIServer) createUser(user *models.User) (int, error) {
+	var id int
+	err := a.db.Get(&id, "INSERT INTO users(username, password, country_id) VALUES ($1, $2, $3) RETURNING id", user.Username, user.Password, user.CountryId)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
