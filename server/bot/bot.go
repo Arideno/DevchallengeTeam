@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/codingsince1985/geo-golang/openstreetmap"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/gorilla/websocket"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -14,9 +15,14 @@ import (
 	"strings"
 )
 
+type API interface {
+	GetConnections() map[int]*websocket.Conn
+}
+
 type Service struct {
 	bot *tgbotapi.BotAPI
 	db  *sqlx.DB
+	ApiServer API
 }
 
 type CallbackData struct {
@@ -48,6 +54,11 @@ func (s *Service) Start() error {
 	for update := range updates {
 		if update.Message != nil {
 			if update.Message.IsCommand() {
+				if s.getUserStatus(update.Message.Chat.ID) == "DISCUSS" {
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Будь ласка очікуйте.")
+					_, _ = s.bot.Send(msg)
+					continue
+				}
 				switch update.Message.Command() {
 				case "ask":
 					s.handleAsk(update.Message.Chat.ID)
@@ -60,11 +71,18 @@ func (s *Service) Start() error {
 					}
 				}
 			} else if update.Message.Location != nil {
+				if s.getUserStatus(update.Message.Chat.ID) == "DISCUSS" {
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Будь ласка очікуйте.")
+					_, _ = s.bot.Send(msg)
+					continue
+				}
 				s.handleLocation(update.Message.Chat.ID, update.Message.Location)
 			} else if update.Message.Text != "" {
 				switch s.getUserStatus(update.Message.Chat.ID) {
 				case "QUESTION":
 					s.getAnswerOnQuestion(update.Message.Chat.ID, update.Message.Text)
+				case "DISCUSS":
+					s.sendQuestionToOperator(update.Message.Chat.ID, update.Message.Text)
 				default:
 					log.Println("Unknown text")
 				}
@@ -73,6 +91,11 @@ func (s *Service) Start() error {
 		}
 
 		if update.CallbackQuery != nil {
+			if s.getUserStatus(update.CallbackQuery.Message.Chat.ID) == "DISCUSS" {
+				msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "Будь ласка очікуйте.")
+				_, _ = s.bot.Send(msg)
+				continue
+			}
 			callbackData := CallbackData{}
 			_ = json.Unmarshal([]byte(update.CallbackQuery.Data), &callbackData)
 			if callbackData.Type == "country" {
@@ -219,7 +242,7 @@ func (s *Service) handleCountryFromList(chatId int64, code string) {
 }
 
 func (s *Service) handleQuestion(chatId int64) {
-	s.setUserStatus(chatId, "QUESTION")
+	s.SetUserStatus(chatId, "QUESTION")
 	msg := tgbotapi.NewMessage(chatId, "Ми чекаємо на Ваше запитання.")
 	_, _ = s.bot.Send(msg)
 }
@@ -264,12 +287,12 @@ func (s *Service) getAnswerOnQuestion(chatId int64, question string)  {
 	answer, err := s.getAnswer(question, countryId, chatId)
 	if err != nil {
 		s.askQuestion(chatId, countryId, question)
-		s.setUserStatus(chatId, "DISCUSS")
+		s.SetUserStatus(chatId, "DISCUSS")
 		msg := tgbotapi.NewMessage(chatId, "Ваше питання було передано оператору. Будь ласка очікуйте на відповідь.")
 		_, _ = s.bot.Send(msg)
 		return
 	}
-	s.setUserStatus(chatId, "UNKNOWN")
+	s.SetUserStatus(chatId, "UNKNOWN")
 	msg := tgbotapi.NewMessage(chatId, answer)
 	_, _ = s.bot.Send(msg)
 }
@@ -284,3 +307,19 @@ func (s *Service) handleSetUserTopic(chatId int64, topicId float64) {
 	_, _ = s.bot.Send(msg)
 }
 
+func (s *Service) sendQuestionToOperator(chatId int64, message string) {
+	questionId := s.getLastQuestionId(chatId)
+	msg := s.sendMessage(chatId, questionId, message)
+
+	if conn, ok := s.ApiServer.GetConnections()[questionId]; ok {
+		_ = conn.WriteJSON(map[string]interface{}{
+			"type": "message",
+			"data": msg,
+		})
+	}
+}
+
+func (s *Service) SendMessage(chatId int64, message string) {
+	msg := tgbotapi.NewMessage(chatId, message)
+	_, _ = s.bot.Send(msg)
+}

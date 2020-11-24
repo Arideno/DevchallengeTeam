@@ -1,6 +1,7 @@
 package api
 
 import (
+	"app/bot"
 	"app/models"
 	"app/utils"
 	"fmt"
@@ -21,6 +22,8 @@ import (
 type APIServer struct {
 	r  *gin.Engine
 	db *sqlx.DB
+	BotService *bot.Service
+	connections map[int]*websocket.Conn
 }
 
 type login struct {
@@ -28,7 +31,12 @@ type login struct {
 	Password string `form:"password" json:"password" binding:"required"`
 }
 
+func (a *APIServer) GetConnections() map[int]*websocket.Conn {
+	return a.connections
+}
+
 func (a *APIServer) Start() error {
+	a.connections = map[int]*websocket.Conn{}
 	var err error
 	a.db, err = sqlx.Connect("pgx", os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -144,6 +152,15 @@ func (a *APIServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer func() {
+		for k, _ := range a.connections {
+			if a.connections[k] == conn {
+				delete(a.connections, k)
+			}
+		}
+		conn.Close()
+	}()
+
 	type request struct {
 		Type  string      `json:"type" binding:"required"`
 		Data  interface{} `json:"data" binding:"required"`
@@ -176,6 +193,7 @@ func (a *APIServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 				questionId := int(mp["questionId"].(float64))
 
 				msg := a.sendMessage(chatId, questionId, message)
+				a.BotService.SendMessage(chatId, message)
 
 				_ = conn.WriteJSON(map[string]interface{}{
 					"type": "message",
@@ -184,6 +202,7 @@ func (a *APIServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 			} else if req.Type == "GET_MESSAGES" {
 				mp := req.Data.(map[string]interface{})
 				questionId := int(mp["questionId"].(float64))
+				a.connections[questionId] = conn
 				messages := a.getMessages(questionId)
 				_ = conn.WriteJSON(map[string]interface{}{
 					"type": "messages",
@@ -282,6 +301,10 @@ func (a *APIServer) handleChangeStatus() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "ok",
 		})
+		if r.Status == 2 {
+			chatId := a.getChatIdByQuestionId(r.QuestionId)
+			a.BotService.SetUserStatus(chatId, "UNKNOWN")
+		}
 	}
 }
 

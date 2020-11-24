@@ -95,3 +95,9 @@ func (a *APIServer) getMessages(questionId int) []models.Message {
 	_ = a.db.Select(&messages, "SELECT * FROM user_messages WHERE question_id = $1", questionId)
 	return messages
 }
+
+func (a *APIServer) getChatIdByQuestionId(questionId int) int64 {
+	var id int64
+	_ = a.db.Get(&id, "SELECT chat_id FROM user_questions WHERE id = $1", questionId)
+	return id
+}

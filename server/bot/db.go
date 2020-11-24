@@ -70,7 +70,7 @@ func (s *Service) askQuestion(chatId int64, countryId int, question string) {
 	}
 }
 
-func (s *Service) setUserStatus(chatId int64, status string) {
+func (s *Service) SetUserStatus(chatId int64, status string) {
 	_, err := s.db.Exec("INSERT INTO users_bot_status(chat_id, status) VALUES ($1, $2)", chatId, status)
 	if err != nil {
 		_, _ = s.db.Exec("UPDATE users_bot_status SET status = $1 WHERE chat_id = $2", status, chatId)
@@ -103,4 +103,26 @@ func (s *Service) getTopicNameByTopicId(topicId float64) string {
 	var topicName string
 	_ = s.db.Get(&topicName, "SELECT name FROM topics WHERE id = $1", topicId)
 	return topicName
+}
+
+func (s *Service) getLastQuestionId(chatId int64) int {
+	var id int
+	err := s.db.Get(&id, "SELECT id FROM user_questions WHERE chat_id = $1 ORDER BY id DESC LIMIT 1", chatId)
+	log.Println(err)
+	return id
+}
+
+func (s *Service) sendMessage(chatId int64, questionId int, message string) models.Message {
+	var id int
+	err := s.db.Get(&id, "INSERT INTO user_messages(chat_id, message, question_id, from_operator) VALUES ($1, $2, $3, $4) RETURNING id", chatId, message, questionId, false)
+	if err != nil {
+		log.Println(err)
+	}
+	return models.Message{
+		Id:           id,
+		ChatId:       chatId,
+		QuestionId:   questionId,
+		Message:      message,
+		FromOperator: false,
+	}
 }
