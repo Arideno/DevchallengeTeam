@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"app/models"
 	"encoding/json"
 	"fmt"
 	"github.com/codingsince1985/geo-golang/openstreetmap"
@@ -82,6 +83,13 @@ func (s *Service) Start() error {
 				s.handleCountryCallback(update.CallbackQuery.Message.Chat.ID, page)
 			} else if callbackData.Type == "question" {
 				s.handleQuestion(update.CallbackQuery.Message.Chat.ID)
+			} else if callbackData.Type == "topic" {
+				_, _ = s.bot.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
+				s.handleTopic(update.CallbackQuery.Message.Chat.ID)
+			} else if callbackData.Type == "topicChoice" {
+				_, _ = s.bot.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
+				topicId := callbackData.Data.(float64)
+				s.handleSetUserTopic(update.CallbackQuery.Message.Chat.ID, topicId)
 			}
 		}
 
@@ -100,7 +108,7 @@ func (s *Service) handleAsk(chatId int64) {
 		country, _ := s.getCountryById(id)
 		msgText := fmt.Sprintf("Вибрана країна - %s.", country.Name)
 		msg := tgbotapi.NewMessage(chatId, msgText)
-		msg.ReplyMarkup = createAskInlineKeyboard()
+		msg.ReplyMarkup = createTopicInlineKeyboard()
 		_, _ = s.bot.Send(msg)
 	}
 
@@ -131,7 +139,7 @@ func (s *Service) handleLocation(chatId int64, location *tgbotapi.Location) {
 	s.changeCountry(chatId, country.Id)
 	msgText := fmt.Sprintf("Вибрана країна - %s.", country.Name)
 	msg := tgbotapi.NewMessage(chatId, msgText)
-	msg.ReplyMarkup = createAskInlineKeyboard()
+	msg.ReplyMarkup = createTopicInlineKeyboard()
 	_, _ = s.bot.Send(msg)
 }
 
@@ -171,6 +179,18 @@ func createAskInlineKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("Задати питання", `{"type": "question"}`),
 		),
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Обрати іншу тему", `{"type": "topic"}`),
+		),
+	)
+}
+
+
+func createTopicInlineKeyboard() tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Обрати тему запитання", `{"type": "topic"}`),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("Обрати іншу країну", `{"type": "country"}`),
 		),
 	)
@@ -193,18 +213,47 @@ func (s *Service) handleCountryFromList(chatId int64, code string) {
 	s.changeCountry(chatId, country.Id)
 	msgText := fmt.Sprintf("Вибрана країна - %s.", country.Name)
 	msg := tgbotapi.NewMessage(chatId, msgText)
-	msg.ReplyMarkup = createAskInlineKeyboard()
+	msg.ReplyMarkup = createTopicInlineKeyboard()
 	_, _ = s.bot.Send(msg)
 
 }
 
-func (s Service) handleQuestion(chatId int64) {
+func (s *Service) handleQuestion(chatId int64) {
 	s.setUserStatus(chatId, "QUESTION")
 	msg := tgbotapi.NewMessage(chatId, "Ми чекаємо на Ваше запитання.")
 	_, _ = s.bot.Send(msg)
 }
 
-func (s Service) getAnswerOnQuestion(chatId int64, question string)  {
+
+func (s *Service) handleTopic(chatId int64) {
+	_, err := s.getCountryIdByChatId(chatId) // countryId instead _
+	log.Println(err)
+	if err != nil {
+		msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
+		msg.ReplyMarkup = createLocationInlineKeyboard()
+		_, _ = s.bot.Send(msg)
+		return
+	}
+	topics, _:= s.getTopicsList()
+	msg := tgbotapi.NewMessage(chatId, "Оберіть одну із тем")
+	msg.ReplyMarkup = s.getTopicsInlineKeyboard(topics)
+	_, _ = s.bot.Send(msg)
+	return
+
+
+}
+
+func (s *Service) getTopicsInlineKeyboard(topics []models.Topic) tgbotapi.InlineKeyboardMarkup {
+	keyboard := tgbotapi.NewInlineKeyboardMarkup()
+	for i := 0; i < len(topics); i++ {
+		newRow := tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(topics[i].Name, fmt.Sprintf(`{"type": "topicChoice", "data": %d}`, topics[i].Id)))
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, newRow)
+	}
+	return keyboard
+}
+
+
+func (s *Service) getAnswerOnQuestion(chatId int64, question string)  {
 	countryId, err := s.getCountryIdByChatId(chatId)
 	if err != nil {
 		msg := tgbotapi.NewMessage(chatId, "Відправте свою геолокацію або")
@@ -212,11 +261,11 @@ func (s Service) getAnswerOnQuestion(chatId int64, question string)  {
 		_, _ = s.bot.Send(msg)
 		return
 	}
-	answer, err := s.getAnswer(question, countryId)
+	answer, err := s.getAnswer(question, countryId, chatId)
 	if err != nil {
 		s.askQuestion(chatId, countryId, question)
 		s.setUserStatus(chatId, "DISCUSS")
-		msg := tgbotapi.NewMessage(chatId, "Ваше питання було передано консулу. Будь ласка очікуйте на відповідь.")
+		msg := tgbotapi.NewMessage(chatId, "Ваше питання було передано оператору. Будь ласка очікуйте на відповідь.")
 		_, _ = s.bot.Send(msg)
 		return
 	}
@@ -224,3 +273,14 @@ func (s Service) getAnswerOnQuestion(chatId int64, question string)  {
 	msg := tgbotapi.NewMessage(chatId, answer)
 	_, _ = s.bot.Send(msg)
 }
+
+
+func (s *Service) handleSetUserTopic(chatId int64, topicId float64) {
+	s.setUserTopic(chatId, topicId)
+	topicName := s.getTopicNameByTopicId(topicId)
+	msgText := fmt.Sprintf("Вибрана тема - %s.", topicName)
+	msg := tgbotapi.NewMessage(chatId, msgText)
+	msg.ReplyMarkup = createAskInlineKeyboard()
+	_, _ = s.bot.Send(msg)
+}
+

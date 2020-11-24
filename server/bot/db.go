@@ -53,9 +53,11 @@ func (s *Service) getCountries(offset int) ([]models.Country, int) {
 	return countries, count
 }
 
-func (s *Service) getAnswer(question string, countryId int) (string, error) {
+func (s *Service) getAnswer(question string, countryId int, chatId int64) (string, error) {
 	var answer string
-	err := s.db.Get(&answer, "SELECT answer FROM qa WHERE country_id=$1 AND question=$2", countryId, question)
+	var topicId int64
+	_ = s.db.Get(&topicId, "SELECT topicId FROM user_countries WHERE chatId = $1", chatId)
+	err := s.db.Get(&answer, "SELECT answer FROM qa WHERE country_id=$1 AND question=$2 AND topic_id=$3", countryId, question, topicId)
 	if err != nil {
 		return "", err
 	}
@@ -82,4 +84,23 @@ func (s *Service) getUserStatus(chatId int64) string {
 		return "UNKNOWN"
 	}
 	return status
+}
+
+func (s *Service) getTopicsList() ([]models.Topic, error) {
+	var topics []models.Topic
+	err := s.db.Select(&topics, "SELECT * FROM topics")
+	if err != nil {
+		return []models.Topic{}, err
+	}
+	return topics, nil
+}
+
+func (s *Service) setUserTopic(chatId int64, topicId float64) {
+	_, _ = s.db.Exec("UPDATE user_countries SET topicId = $1 WHERE chatId = $2", topicId, chatId)
+}
+
+func (s *Service) getTopicNameByTopicId(topicId float64) string {
+	var topicName string
+	_ = s.db.Get(&topicName, "SELECT name FROM topics WHERE id = $1", topicId)
+	return topicName
 }
