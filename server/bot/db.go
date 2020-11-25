@@ -95,11 +95,11 @@ func (s *Service) getTopicsList() ([]models.Topic, error) {
 	return topics, nil
 }
 
-func (s *Service) setUserTopic(chatId int64, topicId float64) {
+func (s *Service) setUserTopic(chatId int64, topicId int) {
 	_, _ = s.db.Exec("UPDATE user_countries SET topicId = $1 WHERE chatId = $2", topicId, chatId)
 }
 
-func (s *Service) getTopicNameByTopicId(topicId float64) string {
+func (s *Service) getTopicNameByTopicId(topicId int) string {
 	var topicName string
 	_ = s.db.Get(&topicName, "SELECT name FROM topics WHERE id = $1", topicId)
 	return topicName
@@ -107,8 +107,7 @@ func (s *Service) getTopicNameByTopicId(topicId float64) string {
 
 func (s *Service) getLastQuestionId(chatId int64) int {
 	var id int
-	err := s.db.Get(&id, "SELECT id FROM user_questions WHERE chat_id = $1 ORDER BY id DESC LIMIT 1", chatId)
-	log.Println(err)
+	_ = s.db.Get(&id, "SELECT id FROM user_questions WHERE chat_id = $1 ORDER BY id DESC LIMIT 1", chatId)
 	return id
 }
 

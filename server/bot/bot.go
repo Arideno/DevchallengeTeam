@@ -115,7 +115,7 @@ func (s *Service) Start() error {
 				s.handleTopic(update.CallbackQuery.Message.Chat.ID)
 			} else if callbackData.Type == "topicChoice" {
 				_, _ = s.bot.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
-				topicId := callbackData.Data.(float64)
+				topicId := int(callbackData.Data.(float64))
 				s.handleSetUserTopic(update.CallbackQuery.Message.Chat.ID, topicId)
 			}
 		}
@@ -314,7 +314,7 @@ func (s *Service) getAnswerOnQuestion(chatId int64, question string)  {
 }
 
 
-func (s *Service) handleSetUserTopic(chatId int64, topicId float64) {
+func (s *Service) handleSetUserTopic(chatId int64, topicId int) {
 	s.setUserTopic(chatId, topicId)
 	topicName := s.getTopicNameByTopicId(topicId)
 	msgText := fmt.Sprintf("Вибрана тема - %s.", topicName)
