@@ -17,7 +17,7 @@ export const useHttp = () => {
 
             if (!response.ok) {
                 console.log(data)
-                throw new Error(data.error)
+                throw new Error(JSON.stringify(data))
             }
 
             setLoading(false)

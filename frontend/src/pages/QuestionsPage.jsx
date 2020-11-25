@@ -18,6 +18,10 @@ export const QuestionsPage = () => {
             })
             setQuestions(data)
         } catch (e) {
+            const parsedError = JSON.parse(e.message)
+            if (parsedError.code === 401) {
+                logout()
+            }
         }
     }, [token, logout, request])
 

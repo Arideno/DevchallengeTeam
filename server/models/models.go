@@ -23,6 +23,7 @@ type QA struct {
 	Id int `json:"id"`
 	CountryId int `json:"country_id" db:"country_id"`
 	TopicId int `json:"topic_id" db:"topic_id"`
+	TopicName string `json:"topic_name" db:"topic_name"`
 	Question string `json:"question"`
 	Answer string `json:"answer"`
 }

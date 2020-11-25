@@ -1,5 +1,6 @@
 create table qa
 (
+    id serial primary key,
     country_id integer not null
         constraint qa_countries_id_fk
             references countries

@@ -25,6 +25,7 @@ export const AuthPage = () => {
 
     return (
         <>
+            <h1 className="text-center mt-5">Увійти в систему Друг</h1>
             <form>
                 <div className="form-group">
                     <label htmlFor="username">Ім'я користувача</label>
@@ -34,7 +35,7 @@ export const AuthPage = () => {
                     <label htmlFor="password">Пароль</label>
                     <input onChange={changeHandler} type="password" className={"form-control" + (error ? " is-invalid" : "")} id="password" name="password"/>
                 </div>
-                <button type="submit" className="btn btn-primary" onClick={loginHandler} disabled={loading}>Зайти</button>
+                <button type="submit" className="btn btn-primary" onClick={loginHandler} disabled={loading}>Увійти</button>
             </form>
         </>
     )

@@ -57,6 +57,10 @@ export const QuestionDetailPage = () => {
             })
             setQuestion(data)
         } catch (e) {
+            const parsedError = JSON.parse(e.message)
+            if (parsedError.code === 401) {
+                logout()
+            }
         }
     }, [token, request, questionId])
 

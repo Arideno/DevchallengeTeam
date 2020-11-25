@@ -26,6 +26,10 @@ export const QuestionList = ({questions}) => {
         )
     })
 
+    if (questions.length === 0) {
+        return <h1>Питання відсутні</h1>
+    }
+
     return (
         <table className="table table-light table-hover">
             <thead className="thead-dark">

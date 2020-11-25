@@ -13,7 +13,7 @@ export const Navbar = () => {
     }
 
     return (
-        <nav className="navbar navbar-expand-lg navbar-light bg-light">
+        <nav className="navbar navbar-expand-sm navbar-light bg-light">
             <a className="navbar-brand" href="#">Друг</a>
             <ul className="navbar-nav mr-auto">
                 <li className="nav-item">
@@ -23,7 +23,7 @@ export const Navbar = () => {
                     <NavLink to="/qa" className="nav-link">База знань</NavLink>
                 </li>
                 <li className="nav-item">
-                    <NavLink to="/questions" className="nav-link">Налаштування</NavLink>
+                    <NavLink to="/settings" className="nav-link">Налаштування</NavLink>
                 </li>
                 <li className="nav-item">
                     <a href="#" onClick={logoutHandler} className="nav-link">Вийти</a>
