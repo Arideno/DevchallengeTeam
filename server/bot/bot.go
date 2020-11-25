@@ -62,6 +62,10 @@ func (s *Service) Start() error {
 				switch update.Message.Command() {
 				case "ask":
 					s.handleAsk(update.Message.Chat.ID)
+				case "start":
+					s.handleStart(update.Message.Chat.ID)
+				case "help":
+					s.handleHelp(update.Message.Chat.ID)
 				default:
 					isCountryListCommand, code := checkIfCountryByListCommand(update.Message.Command())
 					if isCountryListCommand {
@@ -119,6 +123,18 @@ func (s *Service) Start() error {
 
 	}
 	return nil
+}
+
+
+func (s *Service) handleStart(chatId int64) {
+	msg := tgbotapi.NewMessage(chatId, "Доброго дня! Ми раді познайомити Вас з чат-бот платформою, що спрямована на надання відповідей на запитання, які Вас турбують, у будь-який час доби та у будь-якій точці планети. “Друг” дозволяє надавати підтримку користувачам у режимі реального часу, тож жодне запитання однозначно не залишиться непоміченим.")
+	_, _ = s.bot.Send(msg)
+	s.handleHelp(chatId)
+}
+
+func (s *Service) handleHelp(chatId int64) {
+	msg := tgbotapi.NewMessage(chatId, "/ask - Задати питання\n/help - Отримати список команд")
+	_, _ = s.bot.Send(msg)
 }
 
 func (s *Service) handleAsk(chatId int64) {
