@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetQuestionsByCountryId(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test no questions", func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestGetQuestionsByCountryId(t *testing.T) {
 }
 
 func TestGetQuestionById(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test no questions", func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestGetQuestionById(t *testing.T) {
 }
 
 func TestSetStatus(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test error", func(t *testing.T) {
@@ -82,7 +82,7 @@ func TestSetStatus(t *testing.T) {
 }
 
 func TestAddQA(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	mock.ExpectExec("INSERT INTO qa").WithArgs(1, "test", "test", 1).WillReturnResult(sqlmock.NewResult(1, 1))
@@ -92,7 +92,7 @@ func TestAddQA(t *testing.T) {
 }
 
 func TestGetQAByCountry(t *testing.T)  {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test no qas", func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestGetQAByCountry(t *testing.T)  {
 }
 
 func TestGetQAById(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test no qa", func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestGetQAById(t *testing.T) {
 }
 
 func TestUpdateQA(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test error", func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestUpdateQA(t *testing.T) {
 }
 
 func TestDeleteQA(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test error", func(t *testing.T) {
@@ -196,7 +196,7 @@ func TestDeleteQA(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test error", func(t *testing.T) {
@@ -218,7 +218,7 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestSendMessage(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	mock.ExpectQuery("INSERT").WithArgs(1, "test", 1, true).WillReturnRows(sqlmock.NewRows([]string{"id"}).FromCSVString("1"))
@@ -228,7 +228,7 @@ func TestSendMessage(t *testing.T) {
 }
 
 func TestGetMessages(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test not question", func(t *testing.T) {
@@ -259,7 +259,7 @@ func TestGetMessages(t *testing.T) {
 }
 
 func TestGetChatIdByQuestionId(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	mock.ExpectQuery("SELECT").WithArgs(1).WillReturnRows(sqlmock.NewRows([]string{"chat_id"}).FromCSVString("1"))
@@ -269,7 +269,7 @@ func TestGetChatIdByQuestionId(t *testing.T) {
 }
 
 func TestGetTopics(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("Test no topics", func(t *testing.T) {
@@ -298,7 +298,7 @@ func TestGetTopics(t *testing.T) {
 }
 
 func TestChangePassword(t *testing.T) {
-	s, mock := TestStore(t)
+	s, mock := TestServer(t)
 	defer s.db.Close()
 
 	t.Run("No user id", func(t *testing.T) {

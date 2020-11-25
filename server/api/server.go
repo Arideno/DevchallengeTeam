@@ -44,6 +44,13 @@ func (a *APIServer) Start() error {
 	}
 
 	a.r = gin.Default()
+
+	a.configureRouter()
+
+	return a.r.Run(":8080")
+}
+
+func (a *APIServer) configureRouter() {
 	a.r.Use(cors.New(cors.Config{
 		AllowAllOrigins: true,
 		AllowHeaders:    []string{"Content-Type", "Authorization"},
@@ -125,19 +132,18 @@ func (a *APIServer) Start() error {
 	auth := a.r.Group("/api/auth")
 	auth.Use(authMiddleware.MiddlewareFunc())
 	{
-		auth.GET("/questions", a.handleQuestions())
-		auth.GET("/questions/:id", a.handleGetQuestionById())
-		auth.PATCH("/changeStatus", a.handleChangeStatus())
-		auth.GET("/qa", a.handleQAs())
-		auth.POST("/qa", a.handleAddQA())
-		auth.GET("/qa/:id", a.handleGetQAById())
-		auth.PUT("/qa/:id", a.handleUpdateQAById())
-		auth.DELETE("/qa/:id", a.handleDeleteQAById())
-		auth.GET("/topics", a.handleGetTopics())
-		auth.PATCH("/change/password", a.handleChangePassword())
+		auth.GET("/questions", a.HandleQuestions())
+		auth.GET("/questions/:id", a.HandleGetQuestionById())
+		auth.PATCH("/changeStatus", a.HandleChangeStatus())
+		auth.GET("/qa", a.HandleQAs())
+		auth.POST("/qa", a.HandleAddQA())
+		auth.GET("/qa/:id", a.HandleGetQAById())
+		auth.PUT("/qa/:id", a.HandleUpdateQAById())
+		auth.DELETE("/qa/:id", a.HandleDeleteQAById())
+		auth.GET("/topics", a.HandleGetTopics())
+		auth.PATCH("/change/password", a.HandleChangePassword())
 	}
 
-	return a.r.Run(":8080")
 }
 
 func (a *APIServer) wsHandler(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +251,7 @@ func (a *APIServer) handleCreateUser() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleQuestions() gin.HandlerFunc {
+func (a *APIServer) HandleQuestions() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, _ := c.Get("id")
 		questions, err := a.getQuestionsByCountryId(user.(*models.User).CountryId)
@@ -259,7 +265,7 @@ func (a *APIServer) handleQuestions() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleGetQuestionById() gin.HandlerFunc {
+func (a *APIServer) HandleGetQuestionById() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -280,7 +286,7 @@ func (a *APIServer) handleGetQuestionById() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleChangeStatus() gin.HandlerFunc {
+func (a *APIServer) HandleChangeStatus() gin.HandlerFunc {
 	type request struct {
 		Status     int `json:"status"`
 		QuestionId int `json:"question_id"`
@@ -311,7 +317,7 @@ func (a *APIServer) handleChangeStatus() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleAddQA() gin.HandlerFunc {
+func (a *APIServer) HandleAddQA() gin.HandlerFunc {
 	type request struct {
 		TopicId int `json:"topic_id"`
 		Question  string `json:"question"`
@@ -339,7 +345,7 @@ func (a *APIServer) handleAddQA() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleQAs() gin.HandlerFunc {
+func (a *APIServer) HandleQAs() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, _ := c.Get("id")
 		countryId := user.(*models.User).CountryId
@@ -354,7 +360,7 @@ func (a *APIServer) handleQAs() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleGetQAById() gin.HandlerFunc {
+func (a *APIServer) HandleGetQAById() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -375,7 +381,7 @@ func (a *APIServer) handleGetQAById() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleUpdateQAById() gin.HandlerFunc {
+func (a *APIServer) HandleUpdateQAById() gin.HandlerFunc {
 	type request struct {
 		TopicId int `json:"topic_id"`
 		Question string `json:"question"`
@@ -410,7 +416,7 @@ func (a *APIServer) handleUpdateQAById() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleDeleteQAById() gin.HandlerFunc {
+func (a *APIServer) HandleDeleteQAById() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -433,14 +439,14 @@ func (a *APIServer) handleDeleteQAById() gin.HandlerFunc {
 	}
 }
 
-func (a *APIServer) handleGetTopics() gin.HandlerFunc {
+func (a *APIServer) HandleGetTopics() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		topics := a.getTopics()
 		c.JSON(http.StatusOK, topics)
 	}
 }
 
-func (a *APIServer) handleChangePassword() gin.HandlerFunc {
+func (a *APIServer) HandleChangePassword() gin.HandlerFunc {
 	type request struct {
 		CurrentPassword string `json:"current_password"`
 		NewPassword string `json:"new_password"`
